@@ -15,6 +15,8 @@ namespace MarkView.ViewModels
     {
         private readonly IMarkdownService _markdownService;
         private readonly IFileService _fileService;
+        private readonly IProjectService _projectService;
+        private readonly IFavoriteService _favoriteService;
 
         private bool _isDarkTheme = false;
         private double _currentZoom = 1.0;
@@ -29,14 +31,17 @@ namespace MarkView.ViewModels
         private string _zoomLevelText = "ズーム: 100%";
         private string _windowTitle = "MarkView v1.0.0 - 軽量マークダウンビューア";
 
-        public MainWindowViewModel(IMarkdownService markdownService, IFileService fileService)
+        public MainWindowViewModel(IMarkdownService markdownService, IFileService fileService, IProjectService projectService, IFavoriteService favoriteService)
         {
             _markdownService = markdownService;
             _fileService = fileService;
+            _projectService = projectService;
+            _favoriteService = favoriteService;
 
             InitializeCollections();
             InitializeCommands();
             SetApplicationTitle();
+            InitializeAsync();
         }
 
         #region Properties
@@ -122,6 +127,9 @@ namespace MarkView.ViewModels
         public ObservableCollection<FileItem> RecentFiles { get; private set; } = new();
         public ObservableCollection<FileItem> FileTreeItems { get; private set; } = new();
         public ObservableCollection<TocItem> TocItems { get; private set; } = new();
+        public ObservableCollection<Project> Projects => _projectService.Projects;
+        public ObservableCollection<FavoriteItem> Favorites => _favoriteService.Favorites;
+        public Project? ActiveProject => _projectService.ActiveProject;
 
         #endregion
 
@@ -141,6 +149,14 @@ namespace MarkView.ViewModels
         public ICommand? ExportToPdfCommand { get; private set; }
         public ICommand? AboutCommand { get; private set; }
         public ICommand? ExitCommand { get; private set; }
+
+        public ICommand? CreateProjectCommand { get; private set; }
+        public ICommand? DeleteProjectCommand { get; private set; }
+        public ICommand? SetActiveProjectCommand { get; private set; }
+        public ICommand? RefreshProjectCommand { get; private set; }
+        public ICommand? AddToFavoritesCommand { get; private set; }
+        public ICommand? RemoveFromFavoritesCommand { get; private set; }
+        public ICommand? OpenFavoriteCommand { get; private set; }
 
         #endregion
 
@@ -282,6 +298,14 @@ namespace MarkView.ViewModels
             ExitCommand = new RelayCommand(() => Application.Current.Shutdown());
             ExportToPdfCommand = new RelayCommand(() => MessageBox.Show("PDF エクスポート機能は今後のバージョンで実装予定です。", "情報",
                                       MessageBoxButton.OK, MessageBoxImage.Information));
+
+            CreateProjectCommand = new RelayCommand(CreateProject);
+            DeleteProjectCommand = new RelayCommand<string>(DeleteProject);
+            SetActiveProjectCommand = new RelayCommand<string>(SetActiveProject);
+            RefreshProjectCommand = new RelayCommand<string>(RefreshProject);
+            AddToFavoritesCommand = new RelayCommand(AddToFavorites);
+            RemoveFromFavoritesCommand = new RelayCommand<string>(RemoveFromFavorites);
+            OpenFavoriteCommand = new RelayCommand<FavoriteItem>(OpenFavorite);
         }
 
         private void SetApplicationTitle()
@@ -366,6 +390,199 @@ namespace MarkView.ViewModels
                 "MarkView について",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
+        }
+
+        #endregion
+
+        #region Project and Favorite Methods
+
+        private async void InitializeAsync()
+        {
+            try
+            {
+                await _projectService.LoadProjectsAsync();
+                await _favoriteService.LoadFavoritesAsync();
+
+                _projectService.ActiveProjectChanged += OnActiveProjectChanged;
+
+                StatusText = "プロジェクトとお気に入りを読み込み完了";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "初期化エラーが発生しました";
+                System.Diagnostics.Debug.WriteLine($"初期化エラー: {ex.Message}");
+            }
+        }
+
+        private void OnActiveProjectChanged(Project? activeProject)
+        {
+            OnPropertyChanged(nameof(ActiveProject));
+            if (activeProject != null)
+            {
+                StatusText = $"アクティブプロジェクト: {activeProject.Name} ({activeProject.MarkdownFiles.Count}ファイル)";
+            }
+            else
+            {
+                StatusText = "アクティブプロジェクト: 未選択";
+            }
+        }
+
+        private async void CreateProject()
+        {
+            try
+            {
+                using var dialog = new System.Windows.Forms.FolderBrowserDialog();
+                dialog.Description = "プロジェクト用フォルダを選択してください";
+
+                if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    var folderPath = dialog.SelectedPath;
+                    var projectName = System.IO.Path.GetFileName(folderPath);
+
+                    var project = await _projectService.CreateProjectAsync(projectName, folderPath);
+                    await _projectService.SetActiveProjectAsync(project.Id);
+
+                    StatusText = $"プロジェクト作成完了: {project.Name}";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"プロジェクト作成に失敗しました: {ex.Message}", "エラー",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void DeleteProject(string? projectId)
+        {
+            if (string.IsNullOrEmpty(projectId)) return;
+
+            try
+            {
+                var project = await _projectService.GetProjectAsync(projectId);
+                if (project == null) return;
+
+                var result = MessageBox.Show($"プロジェクト '{project.Name}' を削除しますか？", "確認",
+                                           MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    await _projectService.DeleteProjectAsync(projectId);
+                    StatusText = $"プロジェクト削除完了: {project.Name}";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"プロジェクト削除に失敗しました: {ex.Message}", "エラー",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void SetActiveProject(string? projectId)
+        {
+            try
+            {
+                await _projectService.SetActiveProjectAsync(projectId);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"プロジェクト切り替えに失敗しました: {ex.Message}", "エラー",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void RefreshProject(string? projectId)
+        {
+            if (string.IsNullOrEmpty(projectId)) return;
+
+            try
+            {
+                var project = await _projectService.GetProjectAsync(projectId);
+                if (project != null)
+                {
+                    await _projectService.RefreshProjectFilesAsync(project);
+                    StatusText = $"プロジェクト更新完了: {project.Name}";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"プロジェクト更新に失敗しました: {ex.Message}", "エラー",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void AddToFavorites()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(CurrentFilePath)) return;
+
+                var isAlreadyFavorite = await _favoriteService.IsFavoriteAsync(CurrentFilePath);
+                if (isAlreadyFavorite)
+                {
+                    MessageBox.Show("このファイルは既にお気に入りに登録されています。", "情報",
+                                  MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var fileName = System.IO.Path.GetFileNameWithoutExtension(CurrentFilePath);
+                var favorite = await _favoriteService.AddFavoriteAsync(fileName, CurrentFilePath);
+
+                StatusText = $"お気に入りに追加: {favorite.Title}";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"お気に入り追加に失敗しました: {ex.Message}", "エラー",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void RemoveFromFavorites(string? favoriteId)
+        {
+            if (string.IsNullOrEmpty(favoriteId)) return;
+
+            try
+            {
+                var favorite = await _favoriteService.GetFavoriteAsync(favoriteId);
+                if (favorite == null) return;
+
+                var result = MessageBox.Show($"お気に入り '{favorite.Title}' を削除しますか？", "確認",
+                                           MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    await _favoriteService.RemoveFavoriteAsync(favoriteId);
+                    StatusText = $"お気に入り削除完了: {favorite.Title}";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"お気に入り削除に失敗しました: {ex.Message}", "エラー",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void OpenFavorite(FavoriteItem? favorite)
+        {
+            if (favorite == null) return;
+
+            try
+            {
+                if (File.Exists(favorite.FilePath))
+                {
+                    await LoadMarkdownFileAsync(favorite.FilePath);
+                    await _favoriteService.MarkFavoriteAccessedAsync(favorite.Id);
+                }
+                else
+                {
+                    MessageBox.Show("ファイルが見つかりません。", "エラー",
+                                  MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"ファイル読み込みに失敗しました: {ex.Message}", "エラー",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         #endregion

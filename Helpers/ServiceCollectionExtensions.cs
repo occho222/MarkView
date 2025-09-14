@@ -11,6 +11,9 @@ namespace MarkView.Helpers
             // Services
             services.AddSingleton<IMarkdownService, MarkdownService>();
             services.AddSingleton<IFileService, FileService>();
+            services.AddSingleton<IDataPersistenceService, DataPersistenceService>();
+            services.AddSingleton<IProjectService, ProjectService>();
+            services.AddSingleton<IFavoriteService, FavoriteService>();
 
             // ViewModels
             services.AddTransient<MainWindowViewModel>();

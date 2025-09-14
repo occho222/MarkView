@@ -304,6 +304,30 @@ namespace MarkView.Views
             base.OnKeyDown(e);
         }
 
+        private void ProjectItem_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ListBoxItem item && item.DataContext is Project project)
+            {
+                ViewModel?.SetActiveProjectCommand?.Execute(project.Id);
+            }
+        }
+
+        private void FavoriteItem_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ListBoxItem item && item.DataContext is FavoriteItem favorite)
+            {
+                ViewModel?.OpenFavoriteCommand?.Execute(favorite);
+            }
+        }
+
+        private async void ProjectFile_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ListBoxItem item && item.DataContext is FileItem fileItem && ViewModel != null)
+            {
+                await ViewModel.LoadMarkdownFileAsync(fileItem.FilePath);
+            }
+        }
+
         #endregion
     }
 }

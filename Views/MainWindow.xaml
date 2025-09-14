@@ -170,6 +170,168 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
                     </TabItem>
+
+                    <!-- Projects Tab -->
+                    <TabItem Header="プロジェクト">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Project Management Section -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
+                                <Button Name="CreateProjectButton" Content="新規作成" Command="{Binding CreateProjectCommand}" Margin="0,0,5,0"/>
+                                <Button Name="RefreshProjectButton" Content="更新" Command="{Binding RefreshProjectCommand}"
+                                       CommandParameter="{Binding ActiveProject.Id}" Margin="0,0,5,0"/>
+                            </StackPanel>
+
+                            <!-- Projects Header -->
+                            <TextBlock Grid.Row="1" Text="プロジェクト一覧" FontWeight="Bold" Margin="5,5,5,2"/>
+
+                            <!-- Projects List -->
+                            <ListBox Grid.Row="2" Name="ProjectListBox" Margin="5,0,5,5" ItemsSource="{Binding Projects}" MaxHeight="150">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontWeight="Bold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                <Setter Property="Foreground" Value="Blue"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <Button Grid.Row="0" Grid.Column="1" Content="×" Width="20" Height="20"
+                                                   Command="{Binding DataContext.DeleteProjectCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                   CommandParameter="{Binding Id}" FontSize="10"/>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding FolderPath}"
+                                                      Foreground="Gray" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                                      Text="{Binding LastOpened, StringFormat='最終更新: {0:yyyy/MM/dd HH:mm}'}"
+                                                      Foreground="Gray" FontSize="10"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <EventSetter Event="MouseDoubleClick" Handler="ProjectItem_MouseDoubleClick"/>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+
+                            <!-- Active Project Files Header -->
+                            <TextBlock Grid.Row="3" Text="{Binding ActiveProject.Name, StringFormat='アクティブプロジェクト: {0}'}"
+                                      FontWeight="Bold" Margin="5,5,5,2">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ActiveProject}" Value="{x:Null}">
+                                                <Setter Property="Text" Value="アクティブプロジェクト: 未選択"/>
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- Active Project Files List -->
+                            <ListBox Grid.Row="4" Name="ProjectFilesListBox" Margin="5,0,5,5"
+                                    ItemsSource="{Binding ActiveProject.MarkdownFiles}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Width="16" Height="16" Source="/Icons/file.png" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <EventSetter Event="MouseDoubleClick" Handler="ProjectFile_MouseDoubleClick"/>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.Style>
+                                    <Style TargetType="ListBox">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ActiveProject}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.Style>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Favorites Tab -->
+                    <TabItem Header="お気に入り">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
+                                <Button Name="AddToFavoritesButton" Content="追加" Command="{Binding AddToFavoritesCommand}" Margin="0,0,5,0"/>
+                                <TextBlock Text="現在のファイルをお気に入りに追加" VerticalAlignment="Center" Foreground="Gray" FontSize="11"/>
+                            </StackPanel>
+
+                            <ListBox Grid.Row="1" Name="FavoriteListBox" Margin="5" ItemsSource="{Binding Favorites}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Title}" FontWeight="Bold"/>
+                                            <Button Grid.Row="0" Grid.Column="1" Content="×" Width="20" Height="20"
+                                                   Command="{Binding DataContext.RemoveFromFavoritesCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                   CommandParameter="{Binding Id}" FontSize="10"/>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding FilePath}"
+                                                      Foreground="Gray" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal">
+                                                <TextBlock Text="{Binding FormattedLastAccessed, StringFormat='最終アクセス: {0}'}"
+                                                          Foreground="Gray" FontSize="10" Margin="0,0,10,0"/>
+                                                <TextBlock Text="{Binding AccessCount, StringFormat='アクセス回数: {0}'}"
+                                                          Foreground="Gray" FontSize="10"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <EventSetter Event="MouseDoubleClick" Handler="FavoriteItem_MouseDoubleClick"/>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
                 </TabControl>
             </Grid>
 
