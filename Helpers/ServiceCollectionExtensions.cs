@@ -9,6 +9,7 @@ namespace MarkView.Helpers
         public static IServiceCollection AddMarkViewServices(this IServiceCollection services)
         {
             // Services
+            services.AddSingleton<IPlantUmlService, PlantUmlService>();
             services.AddSingleton<IMarkdownService, MarkdownService>();
             services.AddSingleton<IFileService, FileService>();
             services.AddSingleton<IDataPersistenceService, DataPersistenceService>();

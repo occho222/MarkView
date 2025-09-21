@@ -8,9 +8,11 @@ namespace MarkView.Services
     public class MarkdownService : IMarkdownService
     {
         private readonly MarkdownPipeline _pipeline;
+        private readonly IPlantUmlService _plantUmlService;
 
-        public MarkdownService()
+        public MarkdownService(IPlantUmlService plantUmlService)
         {
+            _plantUmlService = plantUmlService;
             _pipeline = new MarkdownPipelineBuilder()
                 .UseAdvancedExtensions()
                 .UseEmojiAndSmiley()
@@ -19,7 +21,10 @@ namespace MarkView.Services
 
         public string ConvertToHtml(string markdown, bool isDarkTheme, int fontSize)
         {
-            var htmlContent = Markdown.ToHtml(markdown, _pipeline);
+            // PlantUMLコードブロックを事前処理
+            var processedMarkdown = ProcessPlantUmlCodeBlocks(markdown);
+
+            var htmlContent = Markdown.ToHtml(processedMarkdown, _pipeline);
             return CreateHtmlTemplate(htmlContent, isDarkTheme, fontSize);
         }
 
@@ -62,6 +67,42 @@ namespace MarkView.Services
             }
 
             return tocItems;
+        }
+
+        private string ProcessPlantUmlCodeBlocks(string markdown)
+        {
+            try
+            {
+                // PlantUMLコードブロックを検出してHTML画像に変換する正規表現
+                var plantUmlPattern = @"```(?:plantuml|puml|uml)\s*\n([\s\S]*?)\n```";
+
+                return Regex.Replace(markdown, plantUmlPattern, match =>
+                {
+                    var plantUmlCode = match.Groups[1].Value.Trim();
+
+                    if (string.IsNullOrWhiteSpace(plantUmlCode))
+                        return match.Value; // 元のコードブロックをそのまま返す
+
+                    try
+                    {
+                        // PlantUMLサービスでHTML画像を生成
+                        var htmlImage = _plantUmlService.ProcessPlantUmlCode(plantUmlCode);
+
+                        // マークダウンとして認識されるようにHTMLを包む
+                        return $"\n\n{htmlImage}\n\n";
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"PlantUML処理エラー: {ex.Message}");
+                        return match.Value; // エラー時は元のコードブロックを返す
+                    }
+                }, RegexOptions.IgnoreCase | RegexOptions.Multiline);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"PlantUMLコードブロック処理エラー: {ex.Message}");
+                return markdown; // エラー時は元のマークダウンを返す
+            }
         }
 
         private static string CreateHtmlTemplate(string content, bool isDarkTheme, int fontSize)
